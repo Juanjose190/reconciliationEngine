@@ -6,6 +6,7 @@ import { BlockchainSimModule } from './blockchain-sim/blockchain-sim.module';
 import { buildTypeOrmOptions } from './config/database.config';
 import { ExternalModule } from './external/external.module';
 import { LedgerModule } from './ledger/ledger.module';
+import { ReconciliationModule } from './reconciliation/reconciliation.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { UsersModule } from './users/users.module';
 
@@ -22,6 +23,7 @@ import { UsersModule } from './users/users.module';
     AuthLoginModule,
     ExternalModule,
     BlockchainSimModule,
+    ReconciliationModule,
   ],
 })
 export class AppModule {}

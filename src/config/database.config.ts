@@ -1,10 +1,12 @@
 import { ConfigService } from '@nestjs/config';
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { ExternalTransaction } from '../external/external-transaction.entity';
+import { ReconciliationItem } from '../reconciliation/reconciliation-item.entity';
+import { ReconciliationRun } from '../reconciliation/reconciliation-run.entity';
 import { Tenant } from '../tenants/tenant.entity';
 import { User } from '../users/user.entity';
 
-export const ENTITIES = [Tenant, User, ExternalTransaction];
+export const ENTITIES = [Tenant, User, ExternalTransaction, ReconciliationRun, ReconciliationItem];
 
 /**
  * PostgreSQL por defecto. DB_TYPE=sqljs (SQLite en memoria vía WASM) se usa
