@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: recon
+      POSTGRES_PASSWORD: recon
+      POSTGRES_DB: recon
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U recon"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      DB_TYPE: postgres
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: recon
+      DB_PASSWORD: recon
+      DB_NAME: recon
+      DB_SYNC: "true"
+      JWT_SECRET: "${JWT_SECRET:-cambiar-en-produccion}"
+      PLATFORM_ADMIN_KEY: "${PLATFORM_ADMIN_KEY:-cambiar-en-produccion}"
+      LEDGER_DRIVER: memory
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
