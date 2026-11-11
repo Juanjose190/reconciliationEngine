@@ -1,9 +1,10 @@
 import { ConfigService } from '@nestjs/config';
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { ExternalTransaction } from '../external/external-transaction.entity';
 import { Tenant } from '../tenants/tenant.entity';
 import { User } from '../users/user.entity';
 
-export const ENTITIES = [Tenant, User];
+export const ENTITIES = [Tenant, User, ExternalTransaction];
 
 /**
  * PostgreSQL por defecto. DB_TYPE=sqljs (SQLite en memoria vía WASM) se usa

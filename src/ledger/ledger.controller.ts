@@ -1,12 +1,12 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { JwtPayload } from '../auth/auth.types';
 import { CurrentUser, Roles } from '../auth/decorators';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Role } from '../common/role.enum';
-import { CreateTransactionDto, MovementDto } from './ledger.dto';
+import { CreateTransactionDto, LedgerTxQueryDto, MovementDto } from './ledger.dto';
 import { LedgerService } from './ledger.service';
-import { Balances, LedgerTransaction } from './ledger.types';
+import { AccountWithBalances, Balances, LedgerTransaction } from './ledger.types';
 
 const serializeTx = (t: LedgerTransaction) => ({
   id: t.id,
@@ -54,9 +54,25 @@ export class LedgerController {
     return { account: 'world', balances: serializeBalances(await this.ledger.worldBalance(me.tenantSlug)) };
   }
 
+  @Get('accounts')
+  async listAccounts(@CurrentUser() me: JwtPayload) {
+    const accounts = await this.ledger.listAccounts(me.tenantSlug);
+    return accounts.map((a: AccountWithBalances) => ({
+      address: a.address,
+      balances: serializeBalances(a.balances),
+    }));
+  }
+
   @Get('transactions')
-  async all(@CurrentUser() me: JwtPayload) {
-    return (await this.ledger.history(me.tenantSlug)).map(serializeTx);
+  async all(@CurrentUser() me: JwtPayload, @Query() query: LedgerTxQueryDto) {
+    const all = await this.ledger.history(me.tenantSlug, query.account);
+    const limit = query.limit ?? 50;
+    const offset = query.offset ?? 0;
+    const data = all.slice(offset, offset + limit);
+    return {
+      data: data.map(serializeTx),
+      page: { limit, offset, total: all.length },
+    };
   }
 
   @Get('accounts/:address/balances')

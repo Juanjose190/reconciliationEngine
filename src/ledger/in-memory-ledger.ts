@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { isWorld } from './account-path';
 import {
+  AccountWithBalances,
   Balances,
   DuplicateReferenceError,
   InsufficientFundsError,
@@ -85,6 +86,17 @@ export class InMemoryLedger implements LedgerPort {
       ? transactions.filter((t) => t.postings.some((p) => p.source === account || p.destination === account))
       : transactions;
     return selected.map((t) => ({ ...t, postings: t.postings.map((p) => ({ ...p })) }));
+  }
+
+  async listAccounts(ledger: string): Promise<AccountWithBalances[]> {
+    const state = this.mustGet(ledger);
+    const result: AccountWithBalances[] = [];
+    for (const [address, assets] of state.balances) {
+      const balances: Balances = {};
+      for (const [asset, value] of assets) balances[asset] = value;
+      result.push({ address, balances });
+    }
+    return result.sort((a, b) => a.address.localeCompare(b.address));
   }
 
   /** Solo para pruebas: suma de todos los saldos por asset. En partida doble SIEMPRE es 0. */

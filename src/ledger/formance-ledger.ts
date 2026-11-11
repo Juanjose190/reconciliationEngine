@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
+  AccountWithBalances,
   Balances,
   DuplicateReferenceError,
   InsufficientFundsError,
@@ -87,6 +88,27 @@ export class FormanceLedger implements LedgerPort {
       cursor = page?.hasMore ? page.next : undefined;
     } while (cursor);
     return result;
+  }
+
+  async listAccounts(ledger: string): Promise<AccountWithBalances[]> {
+    const result: AccountWithBalances[] = [];
+    let cursor: string | undefined;
+    do {
+      const params = new URLSearchParams({ pageSize: '100', expand: 'volumes' });
+      if (cursor) params.set('cursor', cursor);
+      const res = await this.call('GET', `/api/ledger/v2/${encodeURIComponent(ledger)}/accounts?${params}`);
+      if (!res.ok) throw new Error(`Formance: no se pudo listar cuentas (${res.status})`);
+      const page = ((await res.json()) as any).data;
+      for (const a of page?.data ?? []) {
+        const balances: Balances = {};
+        for (const [asset, v] of Object.entries<any>(a.volumes ?? {})) {
+          balances[asset] = BigInt(v.balance);
+        }
+        result.push({ address: a.address, balances });
+      }
+      cursor = page?.hasMore ? page.next : undefined;
+    } while (cursor);
+    return result.sort((a, b) => a.address.localeCompare(b.address));
   }
 
   private mapTransaction(raw: any): LedgerTransaction {

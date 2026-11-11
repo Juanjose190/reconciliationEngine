@@ -30,11 +30,17 @@ export type Balances = Record<string, bigint>;
  * (Formance Ledger) o el de memoria se eligen con LEDGER_DRIVER.
  * Un ledger por tenant: el aislamiento contable es total, no solo lógico.
  */
+export interface AccountWithBalances {
+  address: string;
+  balances: Balances;
+}
+
 export interface LedgerPort {
   ensureLedger(ledger: string): Promise<void>;
   createTransaction(ledger: string, tx: NewTransaction): Promise<LedgerTransaction>;
   getBalances(ledger: string, account: string): Promise<Balances>;
   listTransactions(ledger: string, filter?: { account?: string }): Promise<LedgerTransaction[]>;
+  listAccounts(ledger: string): Promise<AccountWithBalances[]>;
 }
 
 export const LEDGER_PORT = Symbol('LEDGER_PORT');

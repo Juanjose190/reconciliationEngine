@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { validateAccount, validateAsset, WORLD } from './account-path';
 import {
+  AccountWithBalances,
   Balances,
   DuplicateReferenceError,
   InsufficientFundsError,
@@ -95,6 +96,11 @@ export class LedgerService {
   /** `world` en negativo = total de dinero que ha entrado al sistema desde fuera. */
   worldBalance(tenantSlug: string): Promise<Balances> {
     return this.balances(tenantSlug, WORLD);
+  }
+
+  async listAccounts(tenantSlug: string): Promise<AccountWithBalances[]> {
+    const ledger = await this.ensureLedgerFor(tenantSlug);
+    return this.port.listAccounts(ledger);
   }
 
   /** HU 2.4: historial completo (trazabilidad) de una cuenta, o de todo el ledger. */

@@ -255,7 +255,8 @@ describe('Sprints 1 y 2 — multi-tenant + ledger (e2e)', () => {
         .set(auth(acmeAuditor))
         .send({ account: 'users:alice', asset: 'USD/2', amount: '1' })
         .expect(403);
-      await http().get('/ledger/transactions').set(auth(acmeAuditor)).expect(200);
+      const txsRes = await http().get('/ledger/transactions').set(auth(acmeAuditor)).expect(200);
+      expect(txsRes.body.data).toEqual(expect.any(Array));
     });
 
     it('retiro devuelve dinero a world', async () => {
@@ -274,7 +275,7 @@ describe('Sprints 1 y 2 — multi-tenant + ledger (e2e)', () => {
       const world = await http().get('/ledger/world').set(auth(globexAdmin)).expect(200);
       expect(world.body.balances).toEqual({});
       const txs = await http().get('/ledger/transactions').set(auth(globexAdmin)).expect(200);
-      expect(txs.body).toEqual([]);
+      expect(txs.body.data).toEqual([]);
 
       // La misma referencia se puede usar en otro tenant: los ledgers son independientes.
       await http()

@@ -3,10 +3,13 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsInt,
   IsObject,
   IsOptional,
   IsString,
   Matches,
+  Max,
+  Min,
   ValidateNested,
 } from 'class-validator';
 
@@ -33,6 +36,13 @@ export class CreateTransactionDto {
   postings!: PostingDto[];
 
   @IsOptional() @IsObject() metadata?: Record<string, string>;
+}
+
+export class LedgerTxQueryDto {
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(200) limit?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) offset?: number;
+  @IsOptional() @IsString() account?: string;
+  @IsOptional() @IsString() asset?: string;
 }
 
 export class MovementDto {
