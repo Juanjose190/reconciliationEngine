@@ -1,6 +1,6 @@
 import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { ExternalTransaction, ExternalTxStatus } from '../external/external-transaction.entity';
 import { ExternalService } from '../external/external.service';
 import { LedgerService } from '../ledger/ledger.service';
@@ -28,6 +28,7 @@ export class ReconciliationService {
     @InjectRepository(ReconciliationItem) private readonly items: Repository<ReconciliationItem>,
     private readonly ledger: LedgerService,
     private readonly external: ExternalService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async startRun(
@@ -39,17 +40,30 @@ export class ReconciliationService {
     periodTo: Date,
     params?: Partial<RunParams>,
   ): Promise<ReconciliationRun> {
-    // Candado: no permitir dos corridas simultáneas del mismo tenant
-    const running = await this.runs.findOne({
-      where: { tenantId, status: RunStatus.RUNNING },
-    });
-    if (running) {
-      throw new ConflictException(
-        'Ya hay una corrida en ejecución para este tenant. Espera a que termine.',
-      );
-    }
-
     const mergedParams = { ...DEFAULT_PARAMS, ...params };
+    const isPostgres = this.dataSource.options.type === 'postgres';
+
+    if (isPostgres) {
+      // Advisory lock by hashing tenantId — prevents concurrent runs at DB level
+      const lockKey = this.tenantLockKey(tenantId);
+      const [{ pg_try_advisory_lock: acquired }] = await this.dataSource.query(
+        'SELECT pg_try_advisory_lock($1) as pg_try_advisory_lock', [lockKey],
+      );
+      if (!acquired) {
+        throw new ConflictException(
+          'Ya hay una corrida en ejecución para este tenant. Espera a que termine.',
+        );
+      }
+    } else {
+      const running = await this.runs.findOne({
+        where: { tenantId, status: RunStatus.RUNNING },
+      });
+      if (running) {
+        throw new ConflictException(
+          'Ya hay una corrida en ejecución para este tenant. Espera a que termine.',
+        );
+      }
+    }
 
     const run = await this.runs.save(
       this.runs.create({
@@ -71,6 +85,11 @@ export class ReconciliationService {
       run.finishedAt = new Date();
       await this.runs.save(run);
       throw err;
+    } finally {
+      if (isPostgres) {
+        const lockKey = this.tenantLockKey(tenantId);
+        await this.dataSource.query('SELECT pg_advisory_unlock($1)', [lockKey]).catch(() => {});
+      }
     }
 
     return run;
@@ -395,6 +414,22 @@ export class ReconciliationService {
       });
     }
 
+    // TIMING_OFFSET
+    const timeDiffMs = Math.abs(lt.timestamp.getTime() - ext.observedAt.getTime());
+    const toleranceMs = params.toleranceWindowHours * 3600_000;
+    if (timeDiffMs > toleranceMs) {
+      const hours = Math.round(timeDiffMs / 3600_000);
+      return this.buildItem(run, ItemState.BREAK, BreakType.TIMING_OFFSET, {
+        txHash: ext.txHash,
+        ledgerTxId: String(lt.id),
+        externalTxId: ext.id,
+        asset: ext.asset,
+        ledgerAmount: ledgerAmount.toString(),
+        externalAmount: ext.amount,
+        cause: `Desfase temporal de ${hours}h (tolerancia: ${params.toleranceWindowHours}h). Ledger: ${lt.timestamp.toISOString()}, Externa: ${ext.observedAt.toISOString()}`,
+      });
+    }
+
     // MATCHED
     return this.buildItem(run, ItemState.MATCHED, null, {
       txHash: ext.txHash,
@@ -440,10 +475,17 @@ export class ReconciliationService {
   }
 
   private sumPostingAmounts(lt: LedgerTransaction): bigint {
-    // Para la reconciliación, usamos el monto del primer posting como el monto de la tx
-    // (cada tx del simulador tiene un solo posting relevante)
     if (lt.postings.length === 0) return 0n;
     return lt.postings[0].amount;
+  }
+
+  private tenantLockKey(tenantId: string): number {
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < tenantId.length; i++) {
+      hash ^= tenantId.charCodeAt(i);
+      hash = (hash * 0x01000193) | 0;
+    }
+    return hash;
   }
 
   // --- Consultas ---
@@ -454,8 +496,17 @@ export class ReconciliationService {
     return run;
   }
 
-  async listRuns(tenantId: string): Promise<ReconciliationRun[]> {
-    return this.runs.find({ where: { tenantId }, order: { startedAt: 'DESC' } });
+  async listRuns(
+    tenantId: string,
+    pagination: { limit: number; offset: number } = { limit: 50, offset: 0 },
+  ): Promise<{ data: ReconciliationRun[]; total: number }> {
+    const [data, total] = await this.runs.findAndCount({
+      where: { tenantId },
+      order: { startedAt: 'DESC' },
+      take: pagination.limit,
+      skip: pagination.offset,
+    });
+    return { data, total };
   }
 
   async listItems(

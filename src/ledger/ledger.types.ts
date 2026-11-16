@@ -12,6 +12,8 @@ export interface NewTransaction {
   reference?: string;
   postings: Posting[];
   metadata?: Record<string, string>;
+  /** Timestamp simulado; si no se pasa, se usa la fecha actual. */
+  timestamp?: Date;
 }
 
 export interface LedgerTransaction {

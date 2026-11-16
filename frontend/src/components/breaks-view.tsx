@@ -46,11 +46,11 @@ export function BreaksView() {
       const openData = await api<{ data: BreakItem[] }>('/reconciliation/breaks?limit=200', { token: token! });
 
       // Also load resolved breaks from the latest run
-      const runs = await api<Array<{ id: string }>>('/reconciliation/runs', { token: token! });
+      const runsRes = await api<{ data: Array<{ id: string }> }>('/reconciliation/runs?limit=1', { token: token! });
       let resolvedItems: BreakItem[] = [];
-      if (runs.length > 0) {
+      if (runsRes.data.length > 0) {
         const allItems = await api<{ data: BreakItem[] }>(
-          `/reconciliation/runs/${runs[0].id}/items?state=BREAK&limit=200`,
+          `/reconciliation/runs/${runsRes.data[0].id}/items?state=BREAK&limit=200`,
           { token: token! },
         );
         resolvedItems = allItems.data.filter(b => b.resolutionStatus === 'RESOLVED');

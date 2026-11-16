@@ -17,6 +17,31 @@ services:
       timeout: 3s
       retries: 5
 
+  formance:
+    image: ghcr.io/formancehq/ledger:v2.1
+    environment:
+      STORAGE_DRIVER: postgres
+      STORAGE_POSTGRES_CONN_STRING: "postgresql://formance:formance@formance-db:5432/formance?sslmode=disable"
+    ports:
+      - "3068:3068"
+    depends_on:
+      formance-db:
+        condition: service_healthy
+
+  formance-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: formance
+      POSTGRES_PASSWORD: formance
+      POSTGRES_DB: formance
+    volumes:
+      - formancedata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U formance"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   app:
     build: .
     ports:
@@ -31,10 +56,14 @@ services:
       DB_SYNC: "true"
       JWT_SECRET: "${JWT_SECRET:-cambiar-en-produccion}"
       PLATFORM_ADMIN_KEY: "${PLATFORM_ADMIN_KEY:-cambiar-en-produccion}"
-      LEDGER_DRIVER: memory
+      LEDGER_DRIVER: "${LEDGER_DRIVER:-formance}"
+      FORMANCE_URL: "http://formance:3068"
     depends_on:
       postgres:
         condition: service_healthy
+      formance:
+        condition: service_started
 
 volumes:
   pgdata:
+  formancedata:

@@ -150,6 +150,7 @@ export class BlockchainSimService {
         externalRef: externalRefOverride ?? txData.txHash,
         scenarioId,
       },
+      timestamp: txData.timestamp,
     });
   }
 

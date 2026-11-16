@@ -21,6 +21,7 @@ export interface PostTransactionInput {
   reference?: string;
   postings: Posting[];
   metadata?: Record<string, string>;
+  timestamp?: Date;
 }
 
 /**
@@ -55,6 +56,7 @@ export class LedgerService {
         reference: input.reference,
         postings: input.postings,
         metadata: { ...(input.metadata ?? {}), postedBy: userId },
+        timestamp: input.timestamp,
       });
     } catch (err) {
       throw this.translate(err);

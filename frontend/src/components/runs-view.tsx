@@ -56,8 +56,8 @@ export function RunsView() {
 
   const loadRuns = useCallback(async () => {
     try {
-      const data = await api<Run[]>('/reconciliation/runs', { token: token! });
-      setRuns(data);
+      const res = await api<{ data: Run[] }>('/reconciliation/runs?limit=200', { token: token! });
+      setRuns(res.data);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error cargando corridas');
     } finally {

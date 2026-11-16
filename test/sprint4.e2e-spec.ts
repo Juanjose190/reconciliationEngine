@@ -280,8 +280,8 @@ describe('Sprint 4 — motor de reconciliación (e2e)', () => {
       const runsA = await http().get('/reconciliation/runs').set(auth(adminToken)).expect(200);
       const runsB = await http().get('/reconciliation/runs').set(auth(tenant2Token)).expect(200);
 
-      const idsA = new Set(runsA.body.map((r: any) => r.id));
-      const idsB = new Set(runsB.body.map((r: any) => r.id));
+      const idsA = new Set(runsA.body.data.map((r: any) => r.id));
+      const idsB = new Set(runsB.body.data.map((r: any) => r.id));
 
       for (const id of idsA) {
         expect(idsB.has(id)).toBe(false);
@@ -290,9 +290,9 @@ describe('Sprint 4 — motor de reconciliación (e2e)', () => {
 
     it('acceder a una corrida de otro tenant devuelve 404 (no 403)', async () => {
       const runsA = await http().get('/reconciliation/runs').set(auth(adminToken)).expect(200);
-      if (runsA.body.length > 0) {
+      if (runsA.body.data.length > 0) {
         await http()
-          .get(`/reconciliation/runs/${runsA.body[0].id}`)
+          .get(`/reconciliation/runs/${runsA.body.data[0].id}`)
           .set(auth(tenant2Token))
           .expect(404);
       }
@@ -307,7 +307,7 @@ describe('Sprint 4 — motor de reconciliación (e2e)', () => {
   describe('HU 4.4 — paginación y filtros de items', () => {
     it('pagina items correctamente', async () => {
       const runsA = await http().get('/reconciliation/runs').set(auth(adminToken)).expect(200);
-      const runId = runsA.body[0].id;
+      const runId = runsA.body.data[0].id;
 
       const page1 = await http()
         .get(`/reconciliation/runs/${runId}/items?limit=3&offset=0`)
@@ -332,7 +332,7 @@ describe('Sprint 4 — motor de reconciliación (e2e)', () => {
 
     it('filtra items por estado', async () => {
       const runsA = await http().get('/reconciliation/runs').set(auth(adminToken)).expect(200);
-      const runId = runsA.body[0].id;
+      const runId = runsA.body.data[0].id;
 
       const res = await http()
         .get(`/reconciliation/runs/${runId}/items?state=BREAK`)
@@ -346,7 +346,7 @@ describe('Sprint 4 — motor de reconciliación (e2e)', () => {
 
     it('filtra items por breakType', async () => {
       const runsA = await http().get('/reconciliation/runs').set(auth(adminToken)).expect(200);
-      const runId = runsA.body[0].id;
+      const runId = runsA.body.data[0].id;
 
       const res = await http()
         .get(`/reconciliation/runs/${runId}/items?breakType=AMOUNT_MISMATCH`)

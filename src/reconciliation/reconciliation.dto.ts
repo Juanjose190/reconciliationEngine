@@ -68,6 +68,21 @@ export class ReportQueryDto {
   periodTo!: string;
 }
 
+export class ListRunsQueryDto {
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(200)
+  @Type(() => Number)
+  limit?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  offset?: number;
+}
+
 export class BreaksQueryDto {
   @IsOptional()
   @IsInt()

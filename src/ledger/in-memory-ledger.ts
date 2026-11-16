@@ -63,7 +63,7 @@ export class InMemoryLedger implements LedgerPort {
     const stored: LedgerTransaction = {
       id: state.transactions.length,
       reference: tx.reference,
-      timestamp: new Date(),
+      timestamp: tx.timestamp ?? new Date(),
       postings: tx.postings.map((p) => ({ ...p })),
       metadata: { ...(tx.metadata ?? {}) },
     };

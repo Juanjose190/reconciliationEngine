@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   AccountWithBalances,
@@ -12,20 +12,19 @@ import {
   Posting,
 } from './ledger.types';
 
-/**
- * Adaptador HTTP para Formance Ledger v2.
- *
- * AVISO: escrito contra la API v2 documentada, pero NO verificado contra una
- * instancia real de Formance (no hay una disponible en el entorno de desarrollo).
- * Antes de usarlo, correr un smoke test contra tu servidor:
- *   LEDGER_DRIVER=formance FORMANCE_URL=http://localhost:3068
- */
 @Injectable()
 export class FormanceLedger implements LedgerPort {
+  private readonly logger = new Logger(FormanceLedger.name);
   private readonly baseUrl: string;
+  private readonly clientId: string | null;
+  private readonly clientSecret: string | null;
+  private accessToken: string | null = null;
+  private tokenExpiresAt = 0;
 
   constructor(config: ConfigService) {
     this.baseUrl = config.get<string>('FORMANCE_URL', 'http://localhost:3068').replace(/\/$/, '');
+    this.clientId = config.get<string>('FORMANCE_CLIENT_ID', '') || null;
+    this.clientSecret = config.get<string>('FORMANCE_CLIENT_SECRET', '') || null;
   }
 
   async ensureLedger(ledger: string): Promise<void> {
@@ -40,11 +39,12 @@ export class FormanceLedger implements LedgerPort {
     const body = {
       reference: tx.reference,
       metadata: tx.metadata ?? {},
+      timestamp: tx.timestamp?.toISOString(),
       postings: tx.postings.map((p) => ({
         source: p.source,
         destination: p.destination,
         asset: p.asset,
-        amount: this.toSafeNumber(p.amount),
+        amount: p.amount.toString(),
       })),
     };
     const res = await this.call('POST', `/api/ledger/v2/${encodeURIComponent(ledger)}/transactions`, body);
@@ -128,17 +128,53 @@ export class FormanceLedger implements LedgerPort {
     };
   }
 
-  private toSafeNumber(value: bigint): number {
-    if (value > BigInt(Number.MAX_SAFE_INTEGER)) {
-      throw new Error('Monto demasiado grande para enviarse como número JSON a Formance');
+  private async getAuthHeaders(): Promise<Record<string, string>> {
+    const headers: Record<string, string> = {
+      'content-type': 'application/json',
+      accept: 'application/json',
+    };
+    if (!this.clientId || !this.clientSecret) return headers;
+
+    if (!this.accessToken || Date.now() >= this.tokenExpiresAt) {
+      await this.refreshToken();
     }
-    return Number(value);
+    if (this.accessToken) {
+      headers['authorization'] = `Bearer ${this.accessToken}`;
+    }
+    return headers;
   }
 
-  private call(method: string, path: string, body?: unknown) {
+  private async refreshToken(): Promise<void> {
+    try {
+      const tokenUrl = `${this.baseUrl}/api/auth/oauth/token`;
+      const res = await fetch(tokenUrl, {
+        method: 'POST',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          grant_type: 'client_credentials',
+          client_id: this.clientId!,
+          client_secret: this.clientSecret!,
+        }),
+      });
+      if (!res.ok) {
+        this.logger.error(`Formance OAuth falló: ${res.status}`);
+        this.accessToken = null;
+        return;
+      }
+      const data = (await res.json()) as any;
+      this.accessToken = data.access_token;
+      this.tokenExpiresAt = Date.now() + (data.expires_in - 30) * 1000;
+    } catch (err) {
+      this.logger.error(`Formance OAuth error: ${(err as Error).message}`);
+      this.accessToken = null;
+    }
+  }
+
+  private async call(method: string, path: string, body?: unknown) {
+    const headers = await this.getAuthHeaders();
     return fetch(`${this.baseUrl}${path}`, {
       method,
-      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      headers,
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   }

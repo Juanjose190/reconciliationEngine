@@ -4,7 +4,7 @@ import { CurrentUser, Roles } from '../auth/decorators';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Role } from '../common/role.enum';
-import { BreaksQueryDto, CreateRunDto, ReportQueryDto, ResolveItemDto, RunItemsQueryDto } from './reconciliation.dto';
+import { BreaksQueryDto, CreateRunDto, ListRunsQueryDto, ReportQueryDto, ResolveItemDto, RunItemsQueryDto } from './reconciliation.dto';
 import { ReconciliationReportService } from './reconciliation-report.service';
 import { ReconciliationService } from './reconciliation.service';
 import { RunTrigger } from './reconciliation-run.entity';
@@ -37,9 +37,15 @@ export class ReconciliationController {
 
   @Get('runs')
   @Roles(Role.ADMIN, Role.OPERATOR, Role.AUDITOR)
-  async listRuns(@CurrentUser() me: JwtPayload) {
-    const runs = await this.reconciliation.listRuns(me.tenantId);
-    return runs.map((r) => this.serializeRun(r));
+  async listRuns(@CurrentUser() me: JwtPayload, @Query() query: ListRunsQueryDto) {
+    const { data, total } = await this.reconciliation.listRuns(
+      me.tenantId,
+      { limit: query.limit ?? 50, offset: query.offset ?? 0 },
+    );
+    return {
+      data: data.map((r) => this.serializeRun(r)),
+      page: { limit: query.limit ?? 50, offset: query.offset ?? 0, total },
+    };
   }
 
   @Get('runs/:id')
