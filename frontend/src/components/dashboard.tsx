@@ -1,23 +1,23 @@
 'use client';
 
 import { useState } from 'react';
-import { Nav } from './nav';
+import { Nav, View } from './nav';
 import { ReportView } from './report-view';
 import { RunsView } from './runs-view';
 import { BreaksView } from './breaks-view';
-
-type View = 'dashboard' | 'runs' | 'breaks';
+import { HealthView } from './health-view';
 
 export function Dashboard() {
-  const [view, setView] = useState<View>('dashboard');
+  const [view, setView] = useState<View>('runs');
 
   return (
-    <div className="min-h-screen">
+    <div className="flex flex-col md:flex-row min-h-screen">
       <Nav current={view} onChange={setView} />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-        {view === 'dashboard' && <ReportView />}
+      <main className="flex-1 px-4 py-6 md:px-12 md:py-10 overflow-auto">
         {view === 'runs' && <RunsView />}
         {view === 'breaks' && <BreaksView />}
+        {view === 'reports' && <ReportView />}
+        {view === 'health' && <HealthView />}
       </main>
     </div>
   );

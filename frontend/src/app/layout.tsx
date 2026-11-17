@@ -1,12 +1,20 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
+import { EB_Garamond, Be_Vietnam_Pro } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
+const garamond = EB_Garamond({
+  subsets: ["latin"],
+  variable: "--font-garamond",
+  display: "swap",
+  style: ["normal", "italic"],
+});
+
+const vietnam = Be_Vietnam_Pro({
+  subsets: ["latin"],
+  variable: "--font-vietnam",
+  display: "swap",
+  weight: ["400", "500", "600"],
 });
 
 export const metadata: Metadata = {
@@ -21,7 +29,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body className={`${geistSans.variable} antialiased`}>
+      <body className={`${garamond.variable} ${vietnam.variable} antialiased`}>
         <Providers>{children}</Providers>
       </body>
     </html>

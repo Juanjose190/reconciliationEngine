@@ -9,8 +9,27 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
+        bg: "var(--bg)",
+        fg: "var(--fg)",
+        rule: { DEFAULT: "var(--rule)", dark: "var(--rule-dark)" },
+        botanical: {
+          green: "var(--green)",
+          "green-light": "var(--green-light)",
+          scarlet: "var(--scarlet)",
+          "scarlet-light": "var(--scarlet-light)",
+          amber: "var(--amber)",
+          "amber-light": "var(--amber-light)",
+        },
+        rail: {
+          bg: "var(--rail-bg)",
+          fg: "var(--rail-fg)",
+          muted: "var(--rail-muted)",
+          border: "var(--rail-border)",
+        },
+      },
+      fontFamily: {
+        garamond: ["var(--font-garamond)", "Georgia", "serif"],
+        body: ["var(--font-vietnam)", "system-ui", "sans-serif"],
       },
     },
   },

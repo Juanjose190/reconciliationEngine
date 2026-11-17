@@ -30,16 +30,38 @@ interface RunItem {
   resolutionStatus: string;
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const colors: Record<string, string> = {
-    COMPLETED: 'bg-green-100 text-green-800',
-    RUNNING: 'bg-blue-100 text-blue-800',
-    FAILED: 'bg-red-100 text-red-800',
-  };
+function PhaseStrip({ matched, breaks, pending }: { matched: number; breaks: number; pending: number }) {
+  const total = matched + breaks + pending;
+  if (total === 0) return <div className="w-[120px] h-[6px] bg-rule/30" />;
   return (
-    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${colors[status] || 'bg-gray-100 text-gray-800'}`}>
-      {status}
-    </span>
+    <div className="flex gap-[2px] h-[6px] w-[120px]">
+      {matched > 0 && <span className="bg-botanical-green rounded-[1px]" style={{ flex: matched }} />}
+      {breaks > 0 && <span className="bg-botanical-scarlet rounded-[1px]" style={{ flex: breaks }} />}
+      {pending > 0 && <span className="bg-botanical-amber rounded-[1px]" style={{ flex: pending }} />}
+    </div>
+  );
+}
+
+function BreakClassification({ items }: { items: RunItem[] }) {
+  const breakItems = items.filter(i => i.state === 'BREAK' && i.breakType);
+  if (breakItems.length === 0) return <span className="text-rule-dark text-[12px]">—</span>;
+
+  const counts: Record<string, number> = {};
+  for (const item of breakItems) {
+    if (item.breakType) counts[item.breakType] = (counts[item.breakType] || 0) + 1;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {Object.entries(counts).slice(0, 2).map(([type, count]) => (
+        <span
+          key={type}
+          className="font-garamond italic text-[12px] text-botanical-scarlet bg-botanical-scarlet-light px-2 py-[1px]"
+        >
+          {type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} ×{count}
+        </span>
+      ))}
+    </div>
   );
 }
 
@@ -59,7 +81,7 @@ export function RunsView() {
       const res = await api<{ data: Run[] }>('/reconciliation/runs?limit=200', { token: token! });
       setRuns(res.data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error cargando corridas');
+      setError(e instanceof Error ? e.message : 'Error cargando ejecuciones');
     } finally {
       setLoading(false);
     }
@@ -82,9 +104,9 @@ export function RunsView() {
       await loadRuns();
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
-        setError('Ya hay una corrida en ejecución');
+        setError('Ya hay una ejecución en curso');
       } else {
-        setError(e instanceof Error ? e.message : 'Error iniciando corrida');
+        setError(e instanceof Error ? e.message : 'Error iniciando ejecución');
       }
     } finally {
       setStarting(false);
@@ -101,108 +123,179 @@ export function RunsView() {
     }
   }
 
-  if (loading) return <p className="text-[var(--muted)]">Cargando corridas...</p>;
+  if (loading) return <p className="text-rule-dark">Cargando ejecuciones...</p>;
+
+  const totalMatched = runs.reduce((s, r) => s + r.matched, 0);
+  const totalBreaks = runs.reduce((s, r) => s + r.breaks, 0);
+  const totalItems = runs.reduce((s, r) => s + r.totalLedger, 0);
+  const matchRate = totalItems > 0 ? ((totalMatched / totalItems) * 100).toFixed(1) : '0';
+  const runningCount = runs.filter(r => r.status === 'RUNNING').length;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold">Corridas de reconciliación</h2>
+    <div>
+      <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-4 mb-8">
+        <div>
+          <h2 className="font-garamond italic text-[28px] sm:text-[34px] text-fg leading-tight">
+            Ejecuciones de Reconciliación
+          </h2>
+          <p className="text-[12px] text-rule-dark tracking-[0.06em] uppercase font-medium mt-1">
+            Últimos 30 Días
+          </p>
+        </div>
         {canRun && (
           <button
             onClick={startRun}
             disabled={starting}
-            className="px-4 py-2 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white rounded-lg text-sm font-medium disabled:opacity-50 transition-colors"
+            className="px-6 py-2.5 bg-botanical-green text-rail-fg text-[14px] font-medium disabled:opacity-50 transition-opacity hover:opacity-90"
           >
-            {starting ? 'Iniciando...' : 'Nueva corrida'}
+            {starting ? 'Iniciando...' : 'Nueva Ejecución'}
           </button>
         )}
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>
-      )}
-
-      {runs.length === 0 ? (
-        <p className="text-[var(--muted)]">No hay corridas registradas. Inicia una nueva corrida.</p>
-      ) : (
-        <div className="bg-white border border-[var(--card-border)] rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b border-[var(--card-border)]">
-              <tr>
-                <th className="text-left px-4 py-3 font-medium">ID</th>
-                <th className="text-left px-4 py-3 font-medium">Estado</th>
-                <th className="text-left px-4 py-3 font-medium">Inicio</th>
-                <th className="text-right px-4 py-3 font-medium">Ledger</th>
-                <th className="text-right px-4 py-3 font-medium">Externas</th>
-                <th className="text-right px-4 py-3 font-medium">Matched</th>
-                <th className="text-right px-4 py-3 font-medium">Breaks</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {runs.map(run => (
-                <tr key={run.id} className="border-b border-[var(--card-border)] last:border-0 hover:bg-slate-50">
-                  <td className="px-4 py-3 font-mono text-xs">{run.id.slice(0, 8)}</td>
-                  <td className="px-4 py-3"><StatusBadge status={run.status} /></td>
-                  <td className="px-4 py-3 text-[var(--muted)]">{new Date(run.startedAt).toLocaleString('es')}</td>
-                  <td className="px-4 py-3 text-right">{run.totalLedger}</td>
-                  <td className="px-4 py-3 text-right">{run.totalExternal}</td>
-                  <td className="px-4 py-3 text-right text-[var(--success)]">{run.matched}</td>
-                  <td className="px-4 py-3 text-right text-[var(--warning)]">{run.breaks}</td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => loadItems(run.id)}
-                      className="text-[var(--primary)] hover:underline text-xs"
-                    >
-                      Ver items
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="bg-botanical-scarlet-light border border-botanical-scarlet/20 text-botanical-scarlet px-4 py-3 text-[13px] mb-6">
+          {error}
         </div>
       )}
 
+      <div className="grid grid-cols-2 sm:flex gap-6 sm:gap-12 pb-6 mb-8 border-b border-rule">
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.08em] font-medium text-rule-dark mb-1">Total Ejecuciones</div>
+          <div className="text-[28px] font-semibold tabular-nums">{runs.length}</div>
+        </div>
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.08em] font-medium text-rule-dark mb-1">Tasa de Match</div>
+          <div className="text-[28px] font-semibold tabular-nums text-botanical-green">{matchRate}%</div>
+        </div>
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.08em] font-medium text-rule-dark mb-1">Breaks Abiertos</div>
+          <div className="text-[28px] font-semibold tabular-nums text-botanical-scarlet">{totalBreaks}</div>
+        </div>
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.08em] font-medium text-rule-dark mb-1">En Ejecución</div>
+          <div className="text-[28px] font-semibold tabular-nums text-botanical-amber">{runningCount}</div>
+        </div>
+      </div>
+
+      {runs.length === 0 ? (
+        <p className="text-rule-dark">No hay ejecuciones registradas. Inicia una nueva ejecución.</p>
+      ) : (
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="border-b-2 border-fg">
+              <th className="text-left text-[11px] uppercase tracking-[0.08em] font-medium text-rule-dark pb-3 pr-3">Ejecución</th>
+              <th className="text-left text-[11px] uppercase tracking-[0.08em] font-medium text-rule-dark pb-3 pr-3">Fecha</th>
+              <th className="text-left text-[11px] uppercase tracking-[0.08em] font-medium text-rule-dark pb-3 pr-3">Items</th>
+              <th className="text-left text-[11px] uppercase tracking-[0.08em] font-medium text-rule-dark pb-3 pr-3">Fase</th>
+              <th className="text-left text-[11px] uppercase tracking-[0.08em] font-medium text-rule-dark pb-3 pr-3">Matched</th>
+              <th className="text-left text-[11px] uppercase tracking-[0.08em] font-medium text-rule-dark pb-3 pr-3">Breaks</th>
+              <th className="text-left text-[11px] uppercase tracking-[0.08em] font-medium text-rule-dark pb-3 pr-3">Estado</th>
+              <th className="pb-3"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {runs.map(run => (
+              <tr key={run.id} className="border-b border-rule hover:bg-[var(--hover)] transition-colors">
+                <td className="py-3.5 pr-3 text-[14px] font-semibold tabular-nums">
+                  {run.id.slice(0, 8)}
+                </td>
+                <td className="py-3.5 pr-3 text-[14px] tabular-nums text-fg">
+                  {new Date(run.startedAt).toLocaleDateString('es', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </td>
+                <td className="py-3.5 pr-3 text-[14px] tabular-nums">{run.totalLedger}</td>
+                <td className="py-3.5 pr-3">
+                  <PhaseStrip matched={run.matched} breaks={run.breaks} pending={run.pending} />
+                </td>
+                <td className="py-3.5 pr-3 text-[14px] tabular-nums text-botanical-green font-medium">
+                  {run.matched}
+                </td>
+                <td className="py-3.5 pr-3 text-[14px] tabular-nums text-botanical-scarlet font-semibold">
+                  {run.breaks}
+                </td>
+                <td className="py-3.5 pr-3">
+                  <span className={`inline-block px-2.5 py-[2px] text-[12px] font-medium ${
+                    run.status === 'COMPLETED'
+                      ? 'bg-botanical-green-light text-botanical-green'
+                      : run.status === 'RUNNING'
+                        ? 'bg-botanical-amber-light text-botanical-amber'
+                        : 'bg-botanical-scarlet-light text-botanical-scarlet'
+                  }`}>
+                    {run.status === 'COMPLETED' ? 'Completa' : run.status === 'RUNNING' ? 'Ejecutando' : run.status}
+                  </span>
+                </td>
+                <td className="py-3.5 text-right">
+                  <button
+                    onClick={() => loadItems(run.id)}
+                    className="text-[13px] text-botanical-green hover:underline font-medium"
+                  >
+                    Ver items
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
       {selectedRun && items.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold">Items de la corrida {selectedRun.slice(0, 8)}</h3>
-            <button onClick={() => { setSelectedRun(null); setItems([]); }} className="text-sm text-[var(--muted)] hover:underline">
+        <div className="mt-10">
+          <div className="flex items-baseline justify-between mb-4">
+            <h3 className="font-garamond italic text-[22px]">
+              Items — {selectedRun.slice(0, 8)}
+            </h3>
+            <button
+              onClick={() => { setSelectedRun(null); setItems([]); }}
+              className="text-[13px] text-rule-dark hover:text-fg transition-colors"
+            >
               Cerrar
             </button>
           </div>
-          <div className="bg-white border border-[var(--card-border)] rounded-xl overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-[var(--card-border)]">
-                <tr>
-                  <th className="text-left px-4 py-3 font-medium">Estado</th>
-                  <th className="text-left px-4 py-3 font-medium">Tipo</th>
-                  <th className="text-left px-4 py-3 font-medium">txHash</th>
-                  <th className="text-left px-4 py-3 font-medium">Asset</th>
-                  <th className="text-right px-4 py-3 font-medium">Ledger</th>
-                  <th className="text-right px-4 py-3 font-medium">Externa</th>
-                  <th className="text-right px-4 py-3 font-medium">Diferencia</th>
-                  <th className="text-left px-4 py-3 font-medium">Causa</th>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="border-b-2 border-fg">
+                  <th className="text-left text-[11px] uppercase tracking-[0.08em] font-medium text-rule-dark pb-3 pr-3">Estado</th>
+                  <th className="text-left text-[11px] uppercase tracking-[0.08em] font-medium text-rule-dark pb-3 pr-3">Clasificación</th>
+                  <th className="text-left text-[11px] uppercase tracking-[0.08em] font-medium text-rule-dark pb-3 pr-3">txHash</th>
+                  <th className="text-left text-[11px] uppercase tracking-[0.08em] font-medium text-rule-dark pb-3 pr-3">Asset</th>
+                  <th className="text-right text-[11px] uppercase tracking-[0.08em] font-medium text-rule-dark pb-3 pr-3">Ledger</th>
+                  <th className="text-right text-[11px] uppercase tracking-[0.08em] font-medium text-rule-dark pb-3 pr-3">Externa</th>
+                  <th className="text-right text-[11px] uppercase tracking-[0.08em] font-medium text-rule-dark pb-3 pr-3">Diferencia</th>
+                  <th className="text-left text-[11px] uppercase tracking-[0.08em] font-medium text-rule-dark pb-3">Causa</th>
                 </tr>
               </thead>
               <tbody>
                 {items.map(item => (
-                  <tr key={item.id} className="border-b border-[var(--card-border)] last:border-0">
-                    <td className="px-4 py-2">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                        item.state === 'MATCHED' ? 'bg-green-100 text-green-800' :
-                        item.state === 'BREAK' ? 'bg-amber-100 text-amber-800' :
-                        'bg-gray-100 text-gray-800'
+                  <tr key={item.id} className="border-b border-rule">
+                    <td className="py-3 pr-3">
+                      <span className={`inline-block px-2 py-[1px] text-[12px] font-medium ${
+                        item.state === 'MATCHED'
+                          ? 'bg-botanical-green-light text-botanical-green'
+                          : item.state === 'BREAK'
+                            ? 'bg-botanical-scarlet-light text-botanical-scarlet'
+                            : 'bg-botanical-amber-light text-botanical-amber'
                       }`}>{item.state}</span>
                     </td>
-                    <td className="px-4 py-2 font-mono text-xs">{item.breakType || '-'}</td>
-                    <td className="px-4 py-2 font-mono text-xs">{item.txHash ? item.txHash.slice(0, 12) + '...' : '-'}</td>
-                    <td className="px-4 py-2">{item.asset || '-'}</td>
-                    <td className="px-4 py-2 text-right font-mono">{item.ledgerAmount || '-'}</td>
-                    <td className="px-4 py-2 text-right font-mono">{item.externalAmount || '-'}</td>
-                    <td className="px-4 py-2 text-right font-mono">{item.difference || '-'}</td>
-                    <td className="px-4 py-2 text-xs text-[var(--muted)]">{item.probableCause || '-'}</td>
+                    <td className="py-3 pr-3">
+                      {item.breakType ? (
+                        <span className="font-garamond italic text-[13px] text-botanical-scarlet">
+                          {item.breakType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                        </span>
+                      ) : (
+                        <span className="text-rule-dark text-[12px]">—</span>
+                      )}
+                    </td>
+                    <td className="py-3 pr-3 font-mono text-[12px] text-rule-dark">
+                      {item.txHash ? item.txHash.slice(0, 12) + '…' : '—'}
+                    </td>
+                    <td className="py-3 pr-3 text-[13px]">{item.asset || '—'}</td>
+                    <td className="py-3 pr-3 text-right font-mono text-[13px] tabular-nums">{item.ledgerAmount || '—'}</td>
+                    <td className="py-3 pr-3 text-right font-mono text-[13px] tabular-nums">{item.externalAmount || '—'}</td>
+                    <td className="py-3 pr-3 text-right font-mono text-[13px] tabular-nums text-botanical-scarlet">
+                      {item.difference || '—'}
+                    </td>
+                    <td className="py-3 text-[12px] text-rule-dark">{item.probableCause || '—'}</td>
                   </tr>
                 ))}
               </tbody>
