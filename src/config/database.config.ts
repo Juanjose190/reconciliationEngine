@@ -24,6 +24,17 @@ export function buildTypeOrmOptions(config: ConfigService): TypeOrmModuleOptions
     };
   }
 
+  const databaseUrl = config.get<string>('DATABASE_URL');
+  if (databaseUrl) {
+    return {
+      type: 'postgres',
+      url: databaseUrl,
+      entities: ENTITIES,
+      synchronize: config.get<string>('DB_SYNC', 'false') === 'true',
+      ssl: config.get<string>('DB_SSL', 'false') === 'true' ? { rejectUnauthorized: false } : false,
+    };
+  }
+
   return {
     type: 'postgres',
     host: config.get<string>('DB_HOST', 'localhost'),

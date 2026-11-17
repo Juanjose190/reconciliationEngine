@@ -21,7 +21,8 @@ export function HealthView() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('http://localhost:3002/health');
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+      const res = await fetch(`${apiBase}/health`);
       const data = await res.json();
       setHealth(data);
       setLastCheck(new Date());
