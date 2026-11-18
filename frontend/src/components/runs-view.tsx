@@ -42,6 +42,7 @@ function PhaseStrip({ matched, breaks, pending }: { matched: number; breaks: num
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function BreakClassification({ items }: { items: RunItem[] }) {
   const breakItems = items.filter(i => i.state === 'BREAK' && i.breakType);
   if (breakItems.length === 0) return <span className="text-rule-dark text-[12px]">—</span>;

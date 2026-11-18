@@ -1,17 +1,14 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useAuth } from '@/lib/auth';
-
 interface HealthStatus {
   status: string;
-  info?: Record<string, { status: string }>;
+  info?: Record<string, { status: string; message?: string }>;
   error?: Record<string, { status: string; message?: string }>;
   details?: Record<string, { status: string; message?: string }>;
 }
 
 export function HealthView() {
-  const { token } = useAuth();
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
