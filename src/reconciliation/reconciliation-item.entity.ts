@@ -87,7 +87,7 @@ export class ReconciliationItem {
   @Column({ type: 'varchar', length: 36, nullable: true })
   resolvedBy!: string | null;
 
-  @Column({ type: 'datetime', nullable: true })
+  @Column({ type: 'timestamp', nullable: true })
   resolvedAt!: Date | null;
 
   @Column({ type: 'varchar', length: 32, nullable: true })

@@ -30,10 +30,10 @@ export class ReconciliationRun {
   @Column({ type: 'varchar', length: 36, nullable: true })
   triggeredByUserId!: string | null;
 
-  @Column({ type: 'datetime' })
+  @Column({ type: 'timestamp' })
   periodFrom!: Date;
 
-  @Column({ type: 'datetime' })
+  @Column({ type: 'timestamp' })
   periodTo!: Date;
 
   @Column({ type: 'simple-json', nullable: true })
@@ -42,7 +42,7 @@ export class ReconciliationRun {
   @CreateDateColumn()
   startedAt!: Date;
 
-  @Column({ type: 'datetime', nullable: true })
+  @Column({ type: 'timestamp', nullable: true })
   finishedAt!: Date | null;
 
   @Column({ type: 'int', default: 0 })

@@ -37,7 +37,7 @@ export class ExternalTransaction {
   @Column({ type: 'varchar', length: 40 })
   amount!: string;
 
-  @Column({ type: 'datetime' })
+  @Column({ type: 'timestamp' })
   observedAt!: Date;
 
   @Column({ type: 'int', default: 0 })
